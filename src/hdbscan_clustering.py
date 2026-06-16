@@ -7,6 +7,8 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import seaborn as sns
+import json
+import csv
 
 MODELS = [
     ("paraphrase-multilingual-mpnet-base-v2", "sentence_transformer"),
@@ -14,13 +16,36 @@ MODELS = [
 ]
 
 def save_clusters_to_file(model_name, clusters):
-    filename = os.path.join(os.path.dirname(__file__), "..", "output", f"clusters_{model_name.replace('/', '_')}.txt")
-    with open(filename, "w", encoding="utf-8") as f:
+    base = os.path.join(os.path.dirname(__file__), "..", "output")
+    safe_name = model_name.replace('/', '_')
+
+    # ── JSON ─────────────────────────────────────────────
+    json_data = {
+        "model": model_name,
+        "clusters": [
+            {
+                "cluster": cluster_name,
+                "count": len(events),
+                "events": events
+            }
+            for cluster_name, events in sorted(clusters.items())
+        ]
+    }
+    with open(os.path.join(base, f"clusters_{safe_name}.json"), "w", encoding="utf-8") as f:
+        json.dump(json_data, f, ensure_ascii=False, indent=2)
+
+    # ── CSV ──────────────────────────────────────────────
+    with open(os.path.join(base, f"clusters_{safe_name}.csv"), "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["cluster_id", "cluster_name", "event"])
+        writer.writeheader()
         for cluster_name, events in sorted(clusters.items()):
-            f.write(f"{cluster_name} ({len(events)} éléments)\n")
+            cluster_id = cluster_name.replace("Cluster ", "") if "Cluster" in cluster_name else "-1"
             for event in events:
-                f.write(f"   - {event}\n")
-            f.write("\n")
+                writer.writerow({
+                    "cluster_id": cluster_id,
+                    "cluster_name": cluster_name,
+                    "event": event
+                })
 
 def display_clusters(event_list, labels, embeddings, model_name):
     # Réduction en 2D avec PCA
@@ -107,7 +132,7 @@ def cluster_events(event_list, model_name, model_type):
 
     clusters = defaultdict(list)
     for event, label in zip(event_list, labels):
-        cluster_name = f"Cluster {label}" if label != -1 else "⚠️ Non classifié (outlier)"
+        cluster_name = f"Cluster {label}" if label != -1 else "Outlier"
         clusters[cluster_name].append(event)
 
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
