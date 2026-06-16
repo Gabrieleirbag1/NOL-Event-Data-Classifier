@@ -1,12 +1,16 @@
 import os
+import numpy as np
 import hdbscan
 from sentence_transformers import SentenceTransformer
 from collections import defaultdict
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import seaborn as sns
 
 MODELS = [
     ("paraphrase-multilingual-mpnet-base-v2", "sentence_transformer"),
     ("dangvantuan/sentence-camembert-large",   "sentence_transformer"),
-    # ("almanach/camembert-bio-gliner-v0.1",     "huggingface"),
 ]
 
 def save_clusters_to_file(model_name, clusters):
@@ -17,6 +21,68 @@ def save_clusters_to_file(model_name, clusters):
             for event in events:
                 f.write(f"   - {event}\n")
             f.write("\n")
+
+def display_clusters(event_list, labels, embeddings, model_name):
+    # Réduction en 2D avec PCA
+    pca = PCA(n_components=2)
+    coords = pca.fit_transform(embeddings)
+
+    unique_labels = sorted(set(labels))
+    n_clusters = len([l for l in unique_labels if l != -1])
+
+    palette = sns.color_palette("tab20", n_clusters)
+    color_map = {}
+    color_idx = 0
+    for label in unique_labels:
+        if label == -1:
+            color_map[label] = (0.6, 0.6, 0.6)  # gris pour outliers
+        else:
+            color_map[label] = palette[color_idx % len(palette)]
+            color_idx += 1
+
+    colors = [color_map[l] for l in labels]
+
+    fig, ax = plt.subplots(figsize=(14, 9))
+    sns.set_theme(style="whitegrid")
+
+    # Points
+    scatter = ax.scatter(
+        coords[:, 0], coords[:, 1],
+        c=colors,
+        s=80,
+        alpha=0.85,
+        edgecolors="white",
+        linewidths=0.5
+    )
+
+    # Labels texte sur chaque point
+    for i, (x, y) in enumerate(coords):
+        ax.text(
+            x, y + 0.012,
+            event_list[i],
+            fontsize=7,
+            ha="center",
+            va="bottom",
+            alpha=0.75
+        )
+
+    # Légende
+    legend_patches = []
+    for label in unique_labels:
+        name = f"Cluster {label}" if label != -1 else "Outliers"
+        legend_patches.append(mpatches.Patch(color=color_map[label], label=name))
+    ax.legend(handles=legend_patches, bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
+
+    ax.set_title(f"Clusters — {model_name}", fontsize=13, fontweight="bold", pad=15)
+    ax.set_xlabel("PCA dimension 1", fontsize=9)
+    ax.set_ylabel("PCA dimension 2", fontsize=9)
+
+    plt.tight_layout()
+
+    out_path = os.path.join(os.path.dirname(__file__), "..", "output", f"clusters_{model_name.replace('/', '_')}.png")
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    print(f"Graphique sauvegardé : {out_path}")
+    plt.show()
 
 def mean_pooling(model_output, attention_mask):
     token_embeddings = model_output.last_hidden_state
@@ -48,15 +114,11 @@ def cluster_events(event_list, model_name, model_type):
     n_outliers = list(labels).count(-1)
     print(f"Résultats : {n_clusters} clusters | {n_outliers} outliers\n")
 
-    # for cluster_name, events in sorted(clusters.items()):
-    #     print(f"📂 {cluster_name} ({len(events)} éléments)")
-    #     for event in events:
-    #         print(f"   - {event}")
-    #     print()
     save_clusters_to_file(model_name, clusters)
+    display_clusters(event_list, labels, embeddings, model_name)
 
     return labels, clusters
 
 def run_clustering(event_list):
     for model_name, model_type in MODELS:
-        cluster_events(event_list, model_name, model_type)
+        labels, clusters = cluster_events(event_list, model_name, model_type)
