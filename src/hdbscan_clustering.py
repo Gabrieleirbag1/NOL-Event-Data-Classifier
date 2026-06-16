@@ -13,7 +13,7 @@ MODELS = [
 ]
 
 def save_clusters_to_file(model_name, clusters):
-    filename = f"clusters_{model_name.replace('/', '_')}.txt"
+    filename = os.path.join(os.path.dirname(__file__), "..", "output", f"clusters_{model_name.replace('/', '_')}.txt")
     with open(filename, "w", encoding="utf-8") as f:
         for cluster_name, events in sorted(clusters.items()):
             f.write(f"{cluster_name} ({len(events)} éléments)\n")
