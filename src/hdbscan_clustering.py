@@ -56,15 +56,15 @@ def display_clusters(event_list, labels, embeddings, model_name):
     )
 
     # Labels texte sur chaque point
-    for i, (x, y) in enumerate(coords):
-        ax.text(
-            x, y + 0.012,
-            event_list[i],
-            fontsize=7,
-            ha="center",
-            va="bottom",
-            alpha=0.75
-        )
+    # for i, (x, y) in enumerate(coords):
+    #     ax.text(
+    #         x, y + 0.012,
+    #         event_list[i],
+    #         fontsize=7,
+    #         ha="center",
+    #         va="bottom",
+    #         alpha=0.75
+    #     )
 
     # Légende
     legend_patches = []

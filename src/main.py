@@ -31,4 +31,4 @@ def main():
 if __name__ == "__main__":
     main()
     print(event_list)
-    labels, clusters = run_clustering(event_list)
+    run_clustering(event_list)
