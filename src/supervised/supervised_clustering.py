@@ -13,7 +13,7 @@ MODELS = [
     "dangvantuan/sentence-camembert-large",
 ]
 
-CONFIDENCE_THRESHOLD = 0.55  # en dessous -> "incertain", à vérifier à la main
+CONFIDENCE_THRESHOLD = 0.55
 
 RAW_LABELS = [
     "Midazolam", "Xylo", "Propofol", "Rocu", "Ketamine",
@@ -42,29 +42,25 @@ def clean_text(text):
     text = text.strip()
     lowered = text.lower()
 
-    # Doses avec unité (5mg, 200ml, 0.04 ...)
+    # 5mg, 200ml, 0.04 ...
     lowered = re.sub(r"\d+[\.,]?\d*\s*(mg|ml|g|kg|cc|ui|µg|mcg)\b", "", lowered, flags=re.IGNORECASE)
-    # Ratios/ pourcentages collés à des chiffres (4/4, 100%, br20)
+    # 4/4, 100%, br20
     lowered = re.sub(r"\d+\s*/\s*\d+", "", lowered)
     lowered = re.sub(r"\d+\s*%", "", lowered)
-    # Nombres isolés restants
+    # Other numbers
     lowered = re.sub(r"\d+[\.,]?\d*", "", lowered)
-    # Symboles orphelins laissés par les suppressions ci-dessus (/, %, +, :, virgules seules)
+    # /, %, +, :, etc. are often just noise
     lowered = re.sub(r"[/%+:]", " ", lowered)
     lowered = re.sub(r"\s*,\s*", " ", lowered)
 
-    # Mots-paramètres
+    # Param words
     words = [w for w in lowered.split() if w not in PARAM_WORDS]
     lowered = " ".join(words)
 
     lowered = re.sub(r"\s+", " ", lowered).strip()
     return lowered if lowered else text.lower()  # fallback si tout est supprimé
 
-
 def clean_label(label):
-    """Nettoie un label métier : retire les exemples/parenthèses explicatives,
-    puis applique le même nettoyage que pour les événements (doses, ratios, %)
-    pour que label et événement soient comparés sur un texte de même nature."""
     short = re.split(r"[:\(]", label)[0].strip()
     short = short if short else label
     return clean_text(short)
@@ -78,7 +74,7 @@ def match_events_to_labels(event_list_raw, labels_raw, model_name, top_k=3):
     label_embeddings = model.encode(labels_clean, show_progress_bar=False)
     event_embeddings = model.encode(events_clean, show_progress_bar=True)
 
-    # Normalisation L2 -> produit scalaire = similarité cosine
+    # Normalize embeddings for cosine similarity
     label_embeddings = label_embeddings / np.linalg.norm(label_embeddings, axis=1, keepdims=True)
     event_embeddings = event_embeddings / np.linalg.norm(event_embeddings, axis=1, keepdims=True)
 
@@ -116,7 +112,7 @@ def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
             "alt_score_2": round(r["top_k"][1]["score"], 4) if len(r["top_k"]) > 1 else "",
             "alt_label_3": r["top_k"][2]["label"] if len(r["top_k"]) > 2 else "",
             "alt_score_3": round(r["top_k"][2]["score"], 4) if len(r["top_k"]) > 2 else "",
-            # Colonne vide à remplir à la main si tu veux corriger
+            # Correct manually
             "label_corrige": "",
         })
 
@@ -131,23 +127,23 @@ def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
     n_confident = (df["status"] == "confident").sum()
     n_uncertain = (df["status"] == "uncertain").sum()
     print(f"  -> {csv_path}")
-    print(f"     {n_confident} confiants / {n_uncertain} incertains (seuil={threshold})")
+    print(f"     {n_confident} Confidents / {n_uncertain} Uncertains (threshold={threshold})")
 
     return df
 
 def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MODELS):
     all_results = {}
     for model_name in models:
-        print(f"\n{'='*60}\nModèle : {model_name}\n{'='*60}")
+        print(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
         results = match_events_to_labels(event_list_raw, labels_raw, model_name)
         df = export_results(results, model_name)
         all_results[model_name] = df
 
-    # Petit résumé comparatif : score moyen + nb confiants par modèle
-    print(f"\n{'='*60}\nComparaison des modèles\n{'='*60}")
+    # Comparative summary : average score + number of confident predictions
+    print(f"\n{'='*60}\nComparative Summary\n{'='*60}")
     for model_name, df in all_results.items():
         mean_score = df["score"].mean()
         n_confident = (df["status"] == "confident").sum()
-        print(f"{model_name:45s} | score moyen={mean_score:.3f} | confiants={n_confident}/{len(df)}")
+        print(f"{model_name:45s} | avg score={mean_score:.3f} | confidents={n_confident}/{len(df)}")
 
     return all_results
