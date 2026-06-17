@@ -23,7 +23,7 @@ MODELS = [
 ]
 
 def save_clusters_to_file(model_name, clusters):
-    base = os.path.join(os.path.dirname(__file__), "..", "output")
+    base = os.path.join(os.path.dirname(__file__), "..", "output", "unsupervised")
     safe_name = model_name.replace('/', '_')
 
     # ── JSON ─────────────────────────────────────────────
