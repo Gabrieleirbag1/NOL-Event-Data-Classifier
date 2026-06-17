@@ -15,6 +15,8 @@ from umap import UMAP
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import normalize
 
+from frequency_analysis import run_frequent_params_analysis
+
 
 MODELS = [
     ("paraphrase-multilingual-mpnet-base-v2", "sentence_transformer"),
@@ -90,7 +92,7 @@ def display_clusters(event_list, labels, embeddings, model_name):
     # for i, (x, y) in enumerate(coords):
     #     ax.text(
     #         x, y + 0.012,
-    #         event_list[i],
+    #         event_list["content"][i],
     #         fontsize=7,
     #         ha="center",
     #         va="bottom",
@@ -115,12 +117,11 @@ def display_clusters(event_list, labels, embeddings, model_name):
     print(f"Graphique sauvegardé : {out_path}")
     plt.show()
 
-
 def reduce_embeddings(embeddings, method="umap"):
     if method == "umap":
         reducer = UMAP(
             n_components=10,      # pas trop bas, 5-15 est bien
-            n_neighbors=15,       # voisins considérés (+ grand = + global)
+            n_neighbors=30,       # voisins considérés (+ grand = + global)
             min_dist=0.0,         # 0.0 = clusters plus compacts
             metric="cosine",      # cosine >> euclidean pour du texte
             random_state=42
@@ -195,7 +196,7 @@ def cluster_events(event_list, model_name, model_type):
 
     #1 embeddings
     model = SentenceTransformer(model_name)
-    embeddings = model.encode(event_list, show_progress_bar=True)
+    embeddings = model.encode(event_list["normalized"], show_progress_bar=True)
 
     #2 reduction UMAP
     reduced = reduce_embeddings(embeddings, method="umap")
@@ -212,7 +213,7 @@ def cluster_events(event_list, model_name, model_type):
 
     # 6. Show results
     clusters = defaultdict(list)
-    for event, label in zip(event_list, labels):
+    for event, label in zip(event_list["normalized"], labels):
         cluster_name = f"Cluster {label}" if label != -1 else "Outlier"
         clusters[cluster_name].append(event)
 
@@ -228,3 +229,4 @@ def cluster_events(event_list, model_name, model_type):
 def run_clustering(event_list):
     for model_name, model_type in MODELS:
         labels, clusters = cluster_events(event_list, model_name, model_type)
+        run_frequent_params_analysis(clusters)
