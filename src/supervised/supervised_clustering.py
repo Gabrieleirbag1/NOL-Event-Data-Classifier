@@ -4,6 +4,9 @@ import json
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.decomposition import PCA
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "output", "supervised")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -15,33 +18,14 @@ MODELS = [
 
 CONFIDENCE_THRESHOLD = 0.55
 
-RAW_LABELS = [
-    "Midazolam", "Xylo", "Propofol", "Rocu", "Ketamine",
-    "Haldol 0.5, decadron 4",
-    "Epidurale : PE (perfusion epidurale), BE (bolus epidurale)",
-    "PR (perfusion rémi) (ex :br20 + pr up 0.04) PR up ou down",
-    "BR (bolus rémi)",
-    "PP (perfusion phenil) (ex : bp 80 + pp up 0.5) PP up ou down",
-    "BP (bolus phenil)",
-    "Levophed : PL ou BL",
-    "3 min baseline", "5 min no touch", "Stim", "PREOX",
-    "Laryngo + intubation", "Manual ventilation (MV)", "Guedel",
-    "Start sevo", "positionnement", "Art line", "IV line",
-    "Sonde urinaire", "Skin disinfection", "Draping (champs)",
-    "Infiltration", "Incision", "Insufflation", "Exsufflation",
-    "TNG (tube nasogastrique)", "Debut fermeture plan profond (DFPP)",
-    "Dilaudid", "Zofran", "Fin fermeture peau (FFP)", "Agrafes",
-    "Renverse (ex : néo 3.0 + glyco 0.4 ou sugammadex 300)",
-    "TOF 4/4 100%", "Stop remi", "Stop phenil", "Stop sevo",
-    "Aide inspi", "Aspiration buccale", "MAN/SPON", "Extubation",
-]
+with open(os.path.join(os.path.dirname(__file__), "labels.json"), "r", encoding="utf-8") as f:
+    RAW_LABELS = json.load(f)
 
 PARAM_WORDS = ("up", "down", "start", "stop")
 
 def clean_text(text):
     text = text.strip()
     lowered = text.lower()
-
     # 5mg, 200ml, 0.04 ...
     lowered = re.sub(r"\d+[\.,]?\d*\s*(mg|ml|g|kg|cc|ui|µg|mcg)\b", "", lowered, flags=re.IGNORECASE)
     # 4/4, 100%, br20
@@ -60,10 +44,12 @@ def clean_text(text):
     lowered = re.sub(r"\s+", " ", lowered).strip()
     return lowered if lowered else text.lower()  # fallback si tout est supprimé
 
+
 def clean_label(label):
     short = re.split(r"[:\(]", label)[0].strip()
     short = short if short else label
     return clean_text(short)
+
 
 def match_events_to_labels(event_list_raw, labels_raw, model_name, top_k=3):
     model = SentenceTransformer(model_name)
@@ -96,7 +82,10 @@ def match_events_to_labels(event_list_raw, labels_raw, model_name, top_k=3):
             ],
         })
 
-    return results
+    # On retourne aussi les embeddings d'événements pour pouvoir les visualiser
+    # sans avoir à ré-encoder (économise un appel modèle coûteux).
+    return results, event_embeddings
+
 
 def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
     safe_name = model_name.replace("/", "_")
@@ -131,12 +120,97 @@ def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
 
     return df
 
-def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MODELS):
+
+def display_clusters_graph(df, embeddings, model_name, show=False, min_label_count=2, max_text_labels=60):
+    if len(df) != embeddings.shape[0]:
+        raise ValueError(
+            f"df a {len(df)} lignes mais embeddings en a {embeddings.shape[0]} "
+            "— elles doivent correspondre ligne à ligne."
+        )
+
+    pca = PCA(n_components=2)
+    coords = pca.fit_transform(embeddings)
+    explained = pca.explained_variance_ratio_.sum()
+
+    label_counts = df["predicted_label"].value_counts()
+    rare_labels = set(label_counts[label_counts < min_label_count].index)
+
+    plot_labels = df["predicted_label"].apply(
+        lambda l: "Autres (rares)" if l in rare_labels else l
+    )
+    unique_labels = sorted(plot_labels.unique())
+
+    n_colors_needed = len([l for l in unique_labels if l != "Autres (rares)"])
+    palette = sns.color_palette("tab20", max(n_colors_needed, 1))
+    color_map = {}
+    idx = 0
+    for label in unique_labels:
+        if label == "Autres (rares)":
+            color_map[label] = (0.6, 0.6, 0.6)
+        else:
+            color_map[label] = palette[idx % len(palette)]
+            idx += 1
+
+    colors = [color_map[l] for l in plot_labels]
+
+    edge_colors = ["red" if s == "uncertain" else "black" for s in df["status"]]
+    edge_widths = [1.4 if s == "uncertain" else 0.5 for s in df["status"]]
+
+    sns.set_theme(style="whitegrid")
+    fig, ax = plt.subplots(figsize=(15, 10))
+
+    ax.scatter(
+        coords[:, 0], coords[:, 1],
+        c=colors, alpha=0.8, s=110,
+        edgecolors=edge_colors, linewidths=edge_widths,
+    )
+
+    if len(df) <= max_text_labels:
+        for (x, y), event_text in zip(coords, df["event"]):
+            ax.annotate(
+                str(event_text), (x, y),
+                fontsize=7, alpha=0.75,
+                xytext=(0, 6), textcoords="offset points", ha="center",
+            )
+
+    handles = [
+        plt.Line2D([0], [0], marker='o', color='w', label=label,
+                   markerfacecolor=color_map[label], markersize=10)
+        for label in unique_labels
+    ]
+    ax.legend(handles=handles, title="Label prédit", loc="center left",
+              bbox_to_anchor=(1.0, 0.5), fontsize=8)
+
+    ax.set_title(
+        f"Matching événements -> labels métier — {model_name}\n"
+        f"(PCA, variance expliquée = {explained:.1%}, "
+        f"contour rouge = prédiction incertaine)",
+        fontsize=13,
+    )
+    ax.set_xlabel("PCA Component 1")
+    ax.set_ylabel("PCA Component 2")
+    plt.tight_layout()
+
+    out_path = os.path.join(OUTPUT_DIR, f"clusters_{model_name.replace('/', '_')}.png")
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    print(f"  -> graphique sauvegardé : {out_path}")
+
+    if show:
+        plt.show()
+    plt.close(fig)
+
+    return out_path
+
+def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MODELS, show_plots=False):
     all_results = {}
     for model_name in models:
         print(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
-        results = match_events_to_labels(event_list_raw, labels_raw, model_name)
+
+        results, event_embeddings = match_events_to_labels(event_list_raw, labels_raw, model_name)
         df = export_results(results, model_name)
+
+        display_clusters_graph(df, event_embeddings, model_name, show=show_plots)
+
         all_results[model_name] = df
 
     # Comparative summary : average score + number of confident predictions
