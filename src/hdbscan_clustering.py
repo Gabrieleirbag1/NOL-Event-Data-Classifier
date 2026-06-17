@@ -17,7 +17,6 @@ from sklearn.preprocessing import normalize
 
 from frequency_analysis import run_frequent_params_analysis
 
-
 MODELS = [
     ("paraphrase-multilingual-mpnet-base-v2", "sentence_transformer"),
     ("dangvantuan/sentence-camembert-large",   "sentence_transformer"),
@@ -213,7 +212,7 @@ def cluster_events(event_list, model_name, model_type):
 
     # 6. Show results
     clusters = defaultdict(list)
-    for event, label in zip(event_list["normalized"], labels):
+    for event, label in zip(event_list["content"], labels):
         cluster_name = f"Cluster {label}" if label != -1 else "Outlier"
         clusters[cluster_name].append(event)
 
