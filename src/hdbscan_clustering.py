@@ -1,14 +1,20 @@
 import os
 import numpy as np
 import hdbscan
-from sentence_transformers import SentenceTransformer
-from collections import defaultdict
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import seaborn as sns
 import json
 import csv
+import itertools
+from sentence_transformers import SentenceTransformer
+from collections import defaultdict
+from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
+from umap import UMAP
+from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import normalize
+
 
 MODELS = [
     ("paraphrase-multilingual-mpnet-base-v2", "sentence_transformer"),
@@ -109,6 +115,74 @@ def display_clusters(event_list, labels, embeddings, model_name):
     print(f"Graphique sauvegardé : {out_path}")
     plt.show()
 
+
+def reduce_embeddings(embeddings, method="umap"):
+    if method == "umap":
+        reducer = UMAP(
+            n_components=10,      # pas trop bas, 5-15 est bien
+            n_neighbors=15,       # voisins considérés (+ grand = + global)
+            min_dist=0.0,         # 0.0 = clusters plus compacts
+            metric="cosine",      # cosine >> euclidean pour du texte
+            random_state=42
+        )
+    reduced = reducer.fit_transform(embeddings)
+    reduced = normalize(reduced, norm="l2")
+    return reduced
+
+def grid_search_hdbscan(embeddings):
+    param_grid = {
+        "min_cluster_size": [2, 3, 5, 10],
+        "min_samples":      [1, 2, 5],
+        "cluster_selection_method": ["eom", "leaf"],
+    }
+
+    best_score = -1
+    best_params = None
+
+    combos = list(itertools.product(*param_grid.values()))
+    keys   = list(param_grid.keys())
+
+    for combo in combos:
+        params = dict(zip(keys, combo))
+        clusterer = hdbscan.HDBSCAN(**params)
+        labels = clusterer.fit_predict(embeddings)
+
+        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+        n_outliers = list(labels).count(-1)
+
+        # Ignorer si trop peu de clusters ou trop d'outliers
+        if n_clusters < 2 or n_outliers > len(embeddings) * 0.3:
+            continue
+
+        score = silhouette_score(embeddings, labels, metric="cosine")
+
+        print(f"  clusters={n_clusters} | outliers={n_outliers} | silhouette={score:.3f} | {params}")
+
+        if score > best_score:
+            best_score = score
+            best_params = params
+
+    print(f"\n Best params : {best_params} (silhouette={best_score:.3f})")
+    return best_params
+
+def assign_outliers_to_nearest_cluster(embeddings, labels):
+
+    outlier_idx  = np.where(labels == -1)[0]
+    cluster_idx  = np.where(labels != -1)[0]
+
+    if len(outlier_idx) == 0:
+        return labels
+
+    nn = NearestNeighbors(n_neighbors=1, metric="cosine")
+    nn.fit(embeddings[cluster_idx])
+
+    _, indices = nn.kneighbors(embeddings[outlier_idx])
+    new_labels = labels.copy()
+    for i, outlier in enumerate(outlier_idx):
+        new_labels[outlier] = labels[cluster_idx[indices[i][0]]]
+
+    return new_labels
+
 def mean_pooling(model_output, attention_mask):
     token_embeddings = model_output.last_hidden_state
     input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
@@ -119,17 +193,24 @@ def cluster_events(event_list, model_name, model_type):
     print(f"Modèle : {model_name}")
     print(f"{'='*50}")
 
+    #1 embeddings
     model = SentenceTransformer(model_name)
     embeddings = model.encode(event_list, show_progress_bar=True)
 
-    clusterer = hdbscan.HDBSCAN(
-        min_cluster_size=2,
-        min_samples=1,
-        metric="euclidean",
-        cluster_selection_method="eom"
-    )
+    #2 reduction UMAP
+    reduced = reduce_embeddings(embeddings, method="umap")
+
+    # 3. Grid search
+    best_params = grid_search_hdbscan(reduced)
+
+    # 4. Clustering with best params
+    clusterer = hdbscan.HDBSCAN(**best_params)
     labels = clusterer.fit_predict(embeddings)
 
+    # 5. Réassigner les outliers
+    labels = assign_outliers_to_nearest_cluster(reduced, labels)
+
+    # 6. Show results
     clusters = defaultdict(list)
     for event, label in zip(event_list, labels):
         cluster_name = f"Cluster {label}" if label != -1 else "Outlier"
