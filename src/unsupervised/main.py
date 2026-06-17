@@ -33,7 +33,7 @@ def get_last_column_data(data):
             event_list["timestamp"].append(event_column[1] if len(event_column) > 1 else "")
 
 def main():
-    data_path = os.path.join(os.path.dirname(__file__), "..", "data")
+    data_path = os.path.join(os.path.dirname(__file__), "..", "..","data")
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]
     for file in files:
         file_path = os.path.join(data_path, file)
