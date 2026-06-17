@@ -15,7 +15,7 @@ from umap import UMAP
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import normalize
 
-from frequency_analysis import run_frequent_params_analysis
+from ..frequency_analysis import run_frequent_params_analysis
 
 MODELS = [
     ("paraphrase-multilingual-mpnet-base-v2", "sentence_transformer"),

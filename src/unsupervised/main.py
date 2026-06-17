@@ -1,6 +1,6 @@
 import os
 import re
-from unsupervised_hdbscan_clustering import run_clustering
+from unsupervised.unsupervised_hdbscan_clustering import run_clustering
 
 event_list = {"normalized": [], "content": [], "timestamp": []}
 PARAM_WORDS = ("up", "down", "start", "stop")
