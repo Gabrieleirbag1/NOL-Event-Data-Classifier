@@ -34,7 +34,7 @@ def clean_text(text):
     # Other numbers
     lowered = re.sub(r"\d+[\.,]?\d*", "", lowered)
     # /, %, +, :, etc. are often just noise
-    lowered = re.sub(r"[/%+:]", " ", lowered)
+    lowered = re.sub(r"[/%:]", " ", lowered)
     lowered = re.sub(r"\s*,\s*", " ", lowered)
 
     # Param words
@@ -42,7 +42,7 @@ def clean_text(text):
     lowered = " ".join(words)
 
     lowered = re.sub(r"\s+", " ", lowered).strip()
-    return lowered if lowered else text.lower()  # fallback si tout est supprimé
+    return lowered if lowered else text.lower()  # fallback if everything was removed
 
 
 def clean_label(label):
@@ -82,8 +82,6 @@ def match_events_to_labels(event_list_raw, labels_raw, model_name, top_k=3):
             ],
         })
 
-    # On retourne aussi les embeddings d'événements pour pouvoir les visualiser
-    # sans avoir à ré-encoder (économise un appel modèle coûteux).
     return results, event_embeddings
 
 
@@ -124,8 +122,8 @@ def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
 def display_clusters_graph(df, embeddings, model_name, show=False, min_label_count=2, max_text_labels=60):
     if len(df) != embeddings.shape[0]:
         raise ValueError(
-            f"df a {len(df)} lignes mais embeddings en a {embeddings.shape[0]} "
-            "— elles doivent correspondre ligne à ligne."
+            f"df has {len(df)} rows but embeddings has {embeddings.shape[0]} "
+            "— they must correspond row by row."
         )
 
     pca = PCA(n_components=2)
@@ -136,16 +134,16 @@ def display_clusters_graph(df, embeddings, model_name, show=False, min_label_cou
     rare_labels = set(label_counts[label_counts < min_label_count].index)
 
     plot_labels = df["predicted_label"].apply(
-        lambda l: "Autres (rares)" if l in rare_labels else l
+        lambda l: "Others (rare)" if l in rare_labels else l
     )
     unique_labels = sorted(plot_labels.unique())
 
-    n_colors_needed = len([l for l in unique_labels if l != "Autres (rares)"])
+    n_colors_needed = len([l for l in unique_labels if l != "Others (rare)"])
     palette = sns.color_palette("tab20", max(n_colors_needed, 1))
     color_map = {}
     idx = 0
     for label in unique_labels:
-        if label == "Autres (rares)":
+        if label == "Others (rare)":
             color_map[label] = (0.6, 0.6, 0.6)
         else:
             color_map[label] = palette[idx % len(palette)]
@@ -178,13 +176,13 @@ def display_clusters_graph(df, embeddings, model_name, show=False, min_label_cou
                    markerfacecolor=color_map[label], markersize=10)
         for label in unique_labels
     ]
-    ax.legend(handles=handles, title="Label prédit", loc="center left",
+    ax.legend(handles=handles, title="Predicted label", loc="center left",
               bbox_to_anchor=(1.0, 0.5), fontsize=8)
 
     ax.set_title(
-        f"Matching événements -> labels métier — {model_name}\n"
-        f"(PCA, variance expliquée = {explained:.1%}, "
-        f"contour rouge = prédiction incertaine)",
+        f"Matching events -> business labels — {model_name}\n"
+        f"(PCA, explained variance = {explained:.1%}, "
+        f"red edge = uncertain prediction)",
         fontsize=13,
     )
     ax.set_xlabel("PCA Component 1")
@@ -193,7 +191,7 @@ def display_clusters_graph(df, embeddings, model_name, show=False, min_label_cou
 
     out_path = os.path.join(OUTPUT_DIR, f"clusters_{model_name.replace('/', '_')}.png")
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
-    print(f"  -> graphique sauvegardé : {out_path}")
+    print(f"  -> graph saved: {out_path}")
 
     if show:
         plt.show()
