@@ -33,7 +33,7 @@ def clean_text(text):
     lowered = re.sub(r"\d+\s*%", "", lowered)
     # Other numbers
     lowered = re.sub(r"\d+[\.,]?\d*", "", lowered)
-    # /, %, +, :, etc. are often just noise
+    # /, %, :, etc. are often just noise
     lowered = re.sub(r"[/%:]", " ", lowered)
     lowered = re.sub(r"\s*,\s*", " ", lowered)
 
@@ -52,7 +52,7 @@ def clean_label(label):
 
 
 def match_events_to_labels(event_list_raw, labels_raw, model_name, top_k=3):
-    model = SentenceTransformer(model_name)
+    model: SentenceTransformer = SentenceTransformer(model_name)
 
     events_clean = [clean_text(e) for e in event_list_raw]
     labels_clean = [clean_label(l) for l in labels_raw]
@@ -200,6 +200,17 @@ def display_clusters_graph(df, embeddings, model_name, show=False, min_label_cou
     return out_path
 
 def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MODELS, show_plots=False):
+    # Separating the events that are concatenated with '+' into individual events
+    flattened_events = []
+    for event in event_list_raw:
+        if "+" in event:
+            sub_events = [e.strip() for e in event.split("+") if e.strip()]
+            flattened_events.extend(sub_events)
+        else:
+            flattened_events.append(event)
+    
+    event_list_raw = flattened_events
+
     all_results = {}
     for model_name in models:
         print(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
