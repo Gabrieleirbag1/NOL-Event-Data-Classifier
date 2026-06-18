@@ -199,17 +199,36 @@ def display_clusters_graph(df, embeddings, model_name, show=False, min_label_cou
 
     return out_path
 
-def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MODELS, show_plots=False):
-    # Separating the events that are concatenated with '+' into individual events
+def flatten_events(event_list_raw):
     flattened_events = []
     for event in event_list_raw:
         if "+" in event:
-            sub_events = [e.strip() for e in event.split("+") if e.strip()]
-            flattened_events.extend(sub_events)
+            type_match = re.search(r'^\s*(Type\s+\d+)', event, re.IGNORECASE)
+            type_prefix = type_match.group(1).strip() if type_match else ""
+            
+            timestamp_match = re.search(r'(@\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})\s*$', event)
+            timestamp_suffix = timestamp_match.group(1).strip() if timestamp_match else ""
+            
+            middle_content = event
+            if type_prefix:
+                middle_content = re.sub(r'^\s*Type\s+\d+', '', middle_content, flags=re.IGNORECASE)
+            if timestamp_suffix:
+                middle_content = middle_content.rsplit(timestamp_suffix, 1)[0]
+            
+            sub_events = [e.strip() for e in middle_content.split("+") if e.strip()]
+            
+            for sub in sub_events:
+                reconstructed = f"{type_prefix} {sub} {timestamp_suffix}".strip()
+                reconstructed = re.sub(r'\s+', ' ', reconstructed)
+                flattened_events.append(reconstructed)
         else:
             flattened_events.append(event)
     
-    event_list_raw = flattened_events
+    return flattened_events
+
+def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MODELS, show_plots=False):
+    # Separating the events that are concatenated with '+' into individual events
+    event_list_raw = flatten_events(event_list_raw)
 
     all_results = {}
     for model_name in models:
