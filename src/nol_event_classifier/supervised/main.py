@@ -2,7 +2,7 @@ import os
 from supervised_clustering import run_matching_for_all_models
 
 def load_events_from_data_dir():
-    data_path = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    data_path = os.path.join(os.path.dirname(__file__), "..", "..", "..","data")
     event_list = []
 
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]

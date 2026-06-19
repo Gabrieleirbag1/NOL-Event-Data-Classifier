@@ -1,5 +1,5 @@
 import os
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "output", "supervised")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "supervised")
 
 def build_training_dataset(df, use_corrected=True):
     """

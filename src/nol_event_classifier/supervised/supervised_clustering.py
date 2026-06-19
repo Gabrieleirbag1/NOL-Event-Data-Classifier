@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "output", "supervised")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "supervised")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 MODELS = [
