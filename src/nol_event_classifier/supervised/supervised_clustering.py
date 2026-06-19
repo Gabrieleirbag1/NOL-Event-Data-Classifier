@@ -12,8 +12,8 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 MODELS = [
+    # "dangvantuan/sentence-camembert-large",
     "paraphrase-multilingual-mpnet-base-v2",
-    "dangvantuan/sentence-camembert-large",
 ]
 
 CONFIDENCE_THRESHOLD = 0.55
