@@ -33,10 +33,11 @@
   "TNG (tube nasogastrique)",
   "Debut fermeture plan profond (DFPP)",
   "Dilaudid",
+  "diltiazem",
   "Zofran",
   "Fin fermeture peau (FFP)",
   "Agrafes",
-  "Renverse (ex : néo 3.0 + glyco 0.4 ou sugammadex / biridion 300)",
+  "Renverse / néo / glyco / sugammadex / biridion",
   "TOF 4/4 100%",
   "Stop remi",
   "Stop phenil",
@@ -69,5 +70,8 @@
   "Oxygène",
   "Coloscopie",
   "Precedex",
-  "Canule brachiale / radiale"
+  "Canule brachiale / radiale",
+  "BIS",
+  "fentanyl",
+  "side"
 ]
