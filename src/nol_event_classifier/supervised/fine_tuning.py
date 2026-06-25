@@ -45,9 +45,9 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
 
     model = SetFitModel.from_pretrained(base_model_name)
     args = TrainingArguments(
-        num_epochs=3,
+        num_epochs=1,
         batch_size=16,
-        num_iterations=20,
+        num_iterations=1,
     )
     trainer = Trainer(
         model=model,
@@ -72,7 +72,7 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
 if __name__ == "__main__":
     best_model_name = "paraphrase-multilingual-mpnet-base-v2"
     df_corrected = pd.read_csv(
-        os.path.join(OUTPUT_DIR, f"matching_{best_model_name.replace('/', '_')}.csv")
+        os.path.join(OUTPUT_DIR, f"matching_{best_model_name.replace('/', '_')}-corrected.csv")
     )
     df_train = build_training_dataset(df_corrected)
     print(df_train["label"].value_counts())
