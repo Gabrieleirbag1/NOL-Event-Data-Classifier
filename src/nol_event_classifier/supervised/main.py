@@ -28,11 +28,3 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     all_results = run_matching_for_all_models(event_list_raw)
-
-    # best_model_name = "dangvantuan/sentence-camembert-large"
-    # df_corrected = pd.read_csv(
-    #     os.path.join(OUTPUT_DIR, f"matching_{best_model_name.replace('/', '_')}.csv")
-    # )
-    # df_train = build_training_dataset(df_corrected)
-    # print(df_train["label"].value_counts())
-    # finetune_setfit(df_train, best_model_name)

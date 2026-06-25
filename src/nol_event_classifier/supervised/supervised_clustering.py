@@ -8,12 +8,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "supervised")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "output", "supervised")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "output", "models")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 MODELS = [
     # "dangvantuan/sentence-camembert-large",
     "paraphrase-multilingual-mpnet-base-v2",
+    "setfit_paraphrase-multilingual-mpnet-base-v2-1-1"
 ]
 
 CONFIDENCE_THRESHOLD = 0.55
@@ -51,8 +53,8 @@ def clean_label(label):
     return clean_text(short)
 
 
-def match_events_to_labels(event_list_raw, labels_raw, model_name, top_k=3):
-    model: SentenceTransformer = SentenceTransformer(model_name)
+def match_events_to_labels(event_list_raw, labels_raw, model_name, model_path=None, top_k=3):
+    model: SentenceTransformer = SentenceTransformer(model_path if model_path else model_name)
 
     events_clean = [clean_text(e) for e in event_list_raw]
     labels_clean = [clean_label(l) for l in labels_raw]
@@ -234,7 +236,11 @@ def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MO
     for model_name in models:
         print(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
 
-        results, event_embeddings = match_events_to_labels(event_list_raw, labels_raw, model_name)
+        model_path = os.path.join(MODEL_PATH, model_name.replace("/", "_"))
+        if not os.path.exists(model_path):
+            model_path = None
+
+        results, event_embeddings = match_events_to_labels(event_list_raw, labels_raw, model_name, model_path)
         df = export_results(results, model_name)
 
         display_clusters_graph(df, event_embeddings, model_name, show=show_plots)
