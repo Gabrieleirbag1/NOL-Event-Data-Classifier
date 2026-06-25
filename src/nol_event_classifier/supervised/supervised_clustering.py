@@ -7,6 +7,7 @@ from sentence_transformers import SentenceTransformer
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
+from lite_logging.lite_logging import log
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "output", "supervised")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "output", "models")
@@ -46,12 +47,10 @@ def clean_text(text):
     lowered = re.sub(r"\s+", " ", lowered).strip()
     return lowered if lowered else text.lower()  # fallback if everything was removed
 
-
 def clean_label(label):
     short = re.split(r"[:\(]", label)[0].strip()
     short = short if short else label
     return clean_text(short)
-
 
 def match_events_to_labels(event_list_raw, labels_raw, model_name, model_path=None, top_k=3):
     model: SentenceTransformer = SentenceTransformer(model_path if model_path else model_name)
@@ -86,7 +85,6 @@ def match_events_to_labels(event_list_raw, labels_raw, model_name, model_path=No
 
     return results, event_embeddings
 
-
 def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
     safe_name = model_name.replace("/", "_")
 
@@ -115,8 +113,8 @@ def export_results(results, model_name, threshold=CONFIDENCE_THRESHOLD):
 
     n_confident = (df["status"] == "confident").sum()
     n_uncertain = (df["status"] == "uncertain").sum()
-    print(f"  -> {csv_path}")
-    print(f"     {n_confident} Confidents / {n_uncertain} Uncertains (threshold={threshold})")
+    log(f"  -> {csv_path}")
+    log(f"     {n_confident} Confidents / {n_uncertain} Uncertains (threshold={threshold})")
 
     return df
 
@@ -193,7 +191,7 @@ def display_clusters_graph(df, embeddings, model_name, show=False, min_label_cou
 
     out_path = os.path.join(OUTPUT_DIR, f"clusters_{model_name.replace('/', '_')}.png")
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
-    print(f"  -> graph saved: {out_path}")
+    log(f"  -> graph saved: {out_path}")
 
     if show:
         plt.show()
@@ -234,7 +232,7 @@ def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MO
 
     all_results = {}
     for model_name in models:
-        print(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
+        log(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
 
         model_path = os.path.join(MODEL_PATH, model_name.replace("/", "_"))
         if not os.path.exists(model_path):
@@ -248,10 +246,10 @@ def run_matching_for_all_models(event_list_raw, labels_raw=RAW_LABELS, models=MO
         all_results[model_name] = df
 
     # Comparative summary : average score + number of confident predictions
-    print(f"\n{'='*60}\nComparative Summary\n{'='*60}")
+    log(f"\n{'='*60}\nComparative Summary\n{'='*60}")
     for model_name, df in all_results.items():
         mean_score = df["score"].mean()
         n_confident = (df["status"] == "confident").sum()
-        print(f"{model_name:45s} | avg score={mean_score:.3f} | confidents={n_confident}/{len(df)}")
+        log(f"{model_name:45s} | avg score={mean_score:.3f} | confidents={n_confident}/{len(df)}")
 
     return all_results

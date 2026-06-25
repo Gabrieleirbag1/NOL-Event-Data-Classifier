@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+from lite_logging.lite_logging import log
+
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "models")
 
 def build_training_dataset(df, use_corrected=True):
@@ -58,14 +60,14 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
     )
     trainer.train()
     metrics = trainer.evaluate()
-    print(f"Accuracy sur le test set : {metrics['accuracy']:.3f}")
+    log(f"Accuracy sur le test set : {metrics['accuracy']:.3f}")
 
     preds = model.predict(split["test"]["text"])
-    print(classification_report(split["test"]["label"], preds, zero_division=0))
+    log(classification_report(split["test"]["label"], preds, zero_division=0))
 
     save_path = os.path.join(OUTPUT_DIR, output_name)
     model.save_pretrained(save_path)
-    print(f"Modèle sauvegardé : {save_path}")
+    log(f"Modèle sauvegardé : {save_path}")
 
     return model, metrics
 
@@ -75,5 +77,5 @@ if __name__ == "__main__":
         os.path.join(OUTPUT_DIR, f"matching_{best_model_name.replace('/', '_')}-corrected.csv")
     )
     df_train = build_training_dataset(df_corrected)
-    print(df_train["label"].value_counts())
+    log(df_train["label"].value_counts())
     finetune_setfit(df_train, best_model_name)

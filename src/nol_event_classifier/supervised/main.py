@@ -1,5 +1,6 @@
 import os
 from supervised_clustering import run_matching_for_all_models
+from lite_logging.lite_logging import log
 
 def load_events_from_data_dir():
     data_path = os.path.join(os.path.dirname(__file__), "..", "..", "..","data")
@@ -21,10 +22,10 @@ def load_events_from_data_dir():
 
 if __name__ == "__main__":
     event_list_raw = load_events_from_data_dir()
-    print(f"{len(event_list_raw)} events loaded")
+    log(f"{len(event_list_raw)} events loaded")
 
     if not event_list_raw:
-        print("No events loaded, exiting.")
+        log("No events loaded, exiting.")
         raise SystemExit(0)
 
     all_results = run_matching_for_all_models(event_list_raw)
