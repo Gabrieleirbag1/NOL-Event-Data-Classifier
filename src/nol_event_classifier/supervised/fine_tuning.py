@@ -1,20 +1,12 @@
 import os
 import pandas as pd
 from lite_logging.lite_logging import log
+import argparse
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "supervised")
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "models")
 
 def build_training_dataset(df, use_corrected=True):
-    """
-    À partir d'un DataFrame exporté (matching_<model>.csv que tu as ouvert
-    et corrigé dans Excel via la colonne 'label_corrige'), construit le
-    dataset final pour l'entraînement.
-
-    Règle : si 'label_corrige' est rempli -> on l'utilise (vérité terrain).
-            sinon, si 'status' == 'confident' -> on garde la prédiction.
-            sinon -> on ignore la ligne (trop incertaine, non corrigée).
-    """
     df = df.copy()
 
     def pick_label(row):
@@ -30,11 +22,8 @@ def build_training_dataset(df, use_corrected=True):
     )
     return df_train.reset_index(drop=True)
 
-
-def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
+def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2, num_epochs=1, batch_size=16, num_iterations=1):
     """
-    Fine-tune un sentence-transformer avec SetFit sur le dataset construit.
-    Nécessite : pip install setfit datasets
     """
     from setfit import SetFitModel, Trainer, TrainingArguments
     from datasets import Dataset
@@ -45,10 +34,6 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
 
     dataset = Dataset.from_pandas(df_train)
     split = dataset.train_test_split(test_size=test_size, seed=42)
-
-    num_epochs = 1
-    batch_size = 16
-    num_iterations = 5
 
     model = SetFitModel.from_pretrained(base_model_name)
     args = TrainingArguments(
@@ -76,11 +61,23 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
 
     return model, metrics
 
-if __name__ == "__main__":
-    best_model_name = "paraphrase-multilingual-mpnet-base-v2"
+def main():
+    parser = argparse.ArgumentParser(description="Fine-tune a SetFit model on a training dataset")
+    parser.add_argument("--base_model", "-m", type=str, default="paraphrase-multilingual-mpnet-base-v2", help="Base model name for SetFit")
+    parser.add_argument("--output_name", "-o", type=str, default=None, help="Output name for the fine-tuned model")
+    parser.add_argument("--test_size", "-t", type=float, default=0.2, help="Test size for train/test split")
+    parser.add_argument("--num_epochs", "-e", type=int, default=1, help="Number of epochs for training")
+    parser.add_argument("--batch_size", "-b", type=int, default=16, help="Batch size for training")
+    parser.add_argument("--num_iterations", "-i", type=int, default=1, help="Number of iterations for training")
+    args = parser.parse_args()
+
     df_corrected = pd.read_csv(
-        os.path.join(OUTPUT_DIR, f"matching_{best_model_name.replace('/', '_')}-corrected.csv")
+        os.path.join(OUTPUT_DIR, f"matching_{args.base_model.replace('/', '_')}-corrected.csv")
     )
     df_train = build_training_dataset(df_corrected)
     log(df_train["label"].value_counts())
-    finetune_setfit(df_train, best_model_name)
+
+    finetune_setfit(df_train, args.base_model, args.output_name, args.test_size, args.num_epochs, args.batch_size, args.num_iterations)
+
+if __name__ == "__main__":
+    main()
