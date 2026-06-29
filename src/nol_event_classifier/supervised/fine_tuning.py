@@ -2,7 +2,8 @@ import os
 import pandas as pd
 from lite_logging.lite_logging import log
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "models")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "supervised")
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..","output", "models")
 
 def build_training_dataset(df, use_corrected=True):
     """
@@ -45,11 +46,15 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
     dataset = Dataset.from_pandas(df_train)
     split = dataset.train_test_split(test_size=test_size, seed=42)
 
+    num_epochs = 1
+    batch_size = 16
+    num_iterations = 5
+
     model = SetFitModel.from_pretrained(base_model_name)
     args = TrainingArguments(
-        num_epochs=1,
-        batch_size=16,
-        num_iterations=1,
+        num_epochs=num_epochs,
+        batch_size=batch_size,
+        num_iterations=num_iterations,
     )
     trainer = Trainer(
         model=model,
@@ -65,7 +70,7 @@ def finetune_setfit(df_train, base_model_name, output_name=None, test_size=0.2):
     preds = model.predict(split["test"]["text"])
     log(classification_report(split["test"]["label"], preds, zero_division=0))
 
-    save_path = os.path.join(OUTPUT_DIR, output_name)
+    save_path = os.path.join(MODEL_DIR, output_name + f"_{num_epochs}ep-{batch_size}bs-{num_iterations}it")
     model.save_pretrained(save_path)
     log(f"Modèle sauvegardé : {save_path}")
 
