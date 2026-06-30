@@ -29,4 +29,5 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     clustering = SupervisedClustering()
+    clustering.load_models()
     all_results = clustering.run_matching_for_all_models(event_list_raw)

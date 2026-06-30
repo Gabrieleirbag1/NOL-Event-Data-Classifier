@@ -28,9 +28,33 @@ with open(os.path.join(os.path.dirname(__file__), "labels.json"), "r", encoding=
 PARAM_WORDS = ("up", "down", "start", "stop")
 
 class SupervisedClustering:
-    def __init__(self, models=MODELS, threshold=0.55):
-        self.models = models
+    def __init__(self, model_list=MODELS, threshold=0.55):
+        self.model_list = model_list
         self.threshold = threshold
+
+        self.models = [{"model_name": None, "model_path": None, "model": None}]
+
+    def load_model(self, model_name):
+        model_path = os.path.join(MODEL_PATH, model_name.replace("/", "_"))
+        if not os.path.exists(model_path):
+            model_path = None
+        log(f"Loading model '{model_name}'")
+        model = SentenceTransformer(model_path if model_path else model_name)
+        model_element = {"model_name": model_name, "model_path": model_path, "model": model}
+        self.models.append(model_element)
+        return model_element
+
+    def load_models(self):
+        for model_name in self.model_list:
+            self.load_model(model_name)
+
+    def get_loaded_model(self, model_name):
+        for model in self.models:
+            if model["model_name"] == model_name:
+                if model["model"] is not None:
+                    return model["model"]
+        log(f"Model '{model_name}' not loaded yet. Loading now...", level="WARNING")
+        return self.load_model(model_name)["model"]
 
     def clean_text(self, text):
         text = text.strip()
@@ -58,8 +82,8 @@ class SupervisedClustering:
         short = short if short else label
         return self.clean_text(short)
 
-    def match_events_to_labels(self, event_list_raw, labels_raw, model_name, model_path=None, top_k=3):
-        model: SentenceTransformer = SentenceTransformer(model_path if model_path else model_name)
+    def match_events_to_labels(self, event_list_raw, labels_raw, model_name, top_k=3):
+        model = self.get_loaded_model(model_name)
 
         events_clean = [self.clean_text(e) for e in event_list_raw]
         labels_clean = [self.clean_label(l) for l in labels_raw]
@@ -231,19 +255,15 @@ class SupervisedClustering:
         
         return flattened_events
 
-    def run_matching_for_all_models(self, event_list_raw, labels_raw=RAW_LABELS, models=MODELS, show_plots=False):
+    def run_matching_for_all_models(self, event_list_raw, labels_raw=RAW_LABELS, show_plots=False):
         # Separating the events that are concatenated with '+' into individual events
         event_list_raw = self.flatten_events(event_list_raw)
 
         all_results = {}
-        for model_name in models:
+        for model_name in self.model_list:
             log(f"\n{'='*60}\nModel : {model_name}\n{'='*60}")
 
-            model_path = os.path.join(MODEL_PATH, model_name.replace("/", "_"))
-            if not os.path.exists(model_path):
-                model_path = None
-
-            results, event_embeddings = self.match_events_to_labels(event_list_raw, labels_raw, model_name, model_path)
+            results, event_embeddings = self.match_events_to_labels(event_list_raw, labels_raw, model_name)
             df = self.export_results(results, model_name)
 
             self.display_clusters_graph(df, event_embeddings, model_name, show=show_plots)
