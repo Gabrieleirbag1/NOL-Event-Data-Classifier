@@ -1,5 +1,5 @@
 import os
-from supervised_clustering import run_matching_for_all_models
+from nol_event_classifier.supervised.supervised_clustering import SupervisedClustering
 from lite_logging.lite_logging import log
 
 def load_events_from_data_dir():
@@ -28,4 +28,5 @@ if __name__ == "__main__":
         log("No events loaded, exiting.")
         raise SystemExit(0)
 
-    all_results = run_matching_for_all_models(event_list_raw)
+    clustering = SupervisedClustering()
+    all_results = clustering.run_matching_for_all_models(event_list_raw)
