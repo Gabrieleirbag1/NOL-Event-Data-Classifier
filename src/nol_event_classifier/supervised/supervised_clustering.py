@@ -19,6 +19,8 @@ MODELS = [
     "setfit_paraphrase-multilingual-mpnet-base-v2_1ep-16bs-3it",
     "setfit_paraphrase-multilingual-mpnet-base-v2_1ep-16bs-5it",
     "setfit_paraphrase-multilingual-mpnet-base-v2_3ep-16bs-1it",
+    "setfit_paraphrase-multilingual-mpnet-base-v2_3ep-16bs-3it",
+    "setfit_paraphrase-multilingual-mpnet-base-v2_3ep-16bs-5it",
     "paraphrase-multilingual-mpnet-base-v2"
 ]
 
