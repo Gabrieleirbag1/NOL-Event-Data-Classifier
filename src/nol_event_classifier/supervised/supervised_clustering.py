@@ -34,29 +34,33 @@ class SupervisedClustering:
         self.model_list = model_list
         self.threshold = threshold
 
-        self.models = [{"model_name": None, "model_path": None, "model": None}]
+        self.models = [{"model_name": None, "model_path": None, "model": None, "label_embeddings": None}]
 
-    def load_model(self, model_name):
+    def load_model(self, model_name, labels_raw=RAW_LABELS):
         model_path = os.path.join(MODEL_PATH, model_name.replace("/", "_"))
         if not os.path.exists(model_path):
             model_path = None
         log(f"Loading model '{model_name}'")
         model = SentenceTransformer(model_path if model_path else model_name)
-        model_element = {"model_name": model_name, "model_path": model_path, "model": model}
+        labels_clean = [self.clean_label(l) for l in labels_raw]
+        label_embeddings = model.encode(labels_clean, show_progress_bar=True)
+        label_embeddings = label_embeddings / np.linalg.norm(label_embeddings, axis=1, keepdims=True)
+        log(f"Model '{model_name}' loaded with {len(labels_clean)} labels.")
+        model_element = {"model_name": model_name, "model_path": model_path, "model": model, "label_embeddings": label_embeddings}
         self.models.append(model_element)
         return model_element
 
-    def load_models(self):
+    def load_models(self, labels_raw=RAW_LABELS):
         for model_name in self.model_list:
-            self.load_model(model_name)
+            self.load_model(model_name, labels_raw=labels_raw)
 
     def get_loaded_model(self, model_name):
         for model in self.models:
             if model["model_name"] == model_name:
                 if model["model"] is not None:
-                    return model["model"]
+                    return model
         log(f"Model '{model_name}' not loaded yet. Loading now...", level="WARNING")
-        return self.load_model(model_name)["model"]
+        return self.load_model(model_name)
 
     def clean_text(self, text):
         text = text.strip()
@@ -88,16 +92,11 @@ class SupervisedClustering:
         model = self.get_loaded_model(model_name)
 
         events_clean = [self.clean_text(e) for e in event_list_raw]
-        labels_clean = [self.clean_label(l) for l in labels_raw]
-
-        label_embeddings = model.encode(labels_clean, show_progress_bar=False)
-        event_embeddings = model.encode(events_clean, show_progress_bar=True)
-
+        event_embeddings = model["model"].encode(events_clean, show_progress_bar=True)
         # Normalize embeddings for cosine similarity
-        label_embeddings = label_embeddings / np.linalg.norm(label_embeddings, axis=1, keepdims=True)
         event_embeddings = event_embeddings / np.linalg.norm(event_embeddings, axis=1, keepdims=True)
 
-        similarity_matrix = event_embeddings @ label_embeddings.T  # (n_events, n_labels)
+        similarity_matrix = event_embeddings @ model["label_embeddings"].T  # (n_events, n_labels)
 
         results = []
         for i, event_raw in enumerate(event_list_raw):
